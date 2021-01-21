@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const db = require('../models')
+const passport = require('../config/ppConfig.js')
 
 // GET route to the auth signup page
 router.get('/signup', (req, res) => {
@@ -20,10 +21,19 @@ router.post('/signup', (req, res) => {
     })
     .then(([user, wasCreated]) => {
         if (wasCreated){
-            res.send(`Created a new user profile for ${user.email}`)
+            passport.authenticate('local', {
+                successRedirect: '/',
+                successFlash: 'Account created and user logged in!'
+            })(req, res)
+            // res.send(`Created a new user profile for ${user.email}`)
         } else {
-            res.send('A user for this email address already exists')
+            req.flash('error', 'An account with that email address already exists.')
+            res.redirect('/auth/login')
         }
+    })
+    .catch(err => {
+        req.flash('error', err.message)
+        res.redirect('/auth/signup')
     })
 })
 
@@ -31,28 +41,16 @@ router.get('/login', (req, res) => {
     res.render('auth/login.ejs')
 })
 
-router.post('/login', (req, res) => {
-    db.user.findOne({
-        where: {
-            email: req.body.email,
-            password: req.body.password
-        }
-    })
-    .then(foundUser => {
-        if(foundUser){
-            res.send(`${foundUser.name} has logged in!`)
-        } else {
-            res.send('gtfo')
-        }
-    })
-    .catch(error => {
-        console.log(error)
-        res.send('There was an error logging in. Check the console?')
-    })
-})
+router.post('/login', passport.authenticate('local', {
+    failureRedirect: '/auth/login',
+    successRedirect: '/',
+    successFlash: 'You are now logged in :)',
+    failureFlash: 'Invalid email or password :('
+}))
 
 router.get('/logout', (req, res) => {
-    res.send('log out mf\'er')
+    req.logout()
+    res.redirect('/')
 })
 
 module.exports = router
